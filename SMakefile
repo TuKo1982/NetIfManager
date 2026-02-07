@@ -1,0 +1,18 @@
+# SMakefile pour NetIfManager
+# Compilateur : SAS/C 6.x
+#
+# Usage : smake          (compile et link)
+#         smake clean    (nettoie les fichiers générés)
+
+CC       = sc
+CFLAGS   = NOSTKCHK DATA=NEAR INCLUDEDIR=MUI:Developer/C/Include
+PROGRAM  = NetIfManager
+SOURCE   = NetIfManager.c
+
+all: $(PROGRAM)
+
+$(PROGRAM): $(SOURCE)
+	$(CC) LINK $(CFLAGS) $(SOURCE) PNAME=$(PROGRAM)
+
+clean:
+	-delete $(PROGRAM) NetIfManager.o QUIET
