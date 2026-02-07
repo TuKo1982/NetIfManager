@@ -33,7 +33,7 @@
 #endif
 
 static const char VersionTag[] =
-    "$VER: NetIfManager 1.0 (07.02.2026) Renaud Schweingruber";
+    "$VER: NetIfManager 1.1 (07.02.2026) Renaud Schweingruber";
 
 struct Library *MUIMasterBase = NULL;
 extern struct DosLibrary *DOSBase;
@@ -47,7 +47,8 @@ enum
     ID_STORAGE_LIST,
     ID_DEVS_LIST,
     ID_ADD,
-    ID_DELETE
+    ID_DELETE,
+    ID_EDIT
 };
 
 #define PATH_STORAGE  "SYS:Storage/NetInterfaces"
@@ -65,6 +66,8 @@ static Object *btn_refresh;
 static Object *btn_quit;
 static Object *btn_add;
 static Object *btn_delete;
+static Object *btn_edit;
+static BOOL editif_exists = FALSE;
 
 static struct NewMenu MenuData[] =
 {
@@ -162,6 +165,33 @@ BOOL GetDeviceVersion(const char *devname, char *verstr, LONG maxlen)
 
     DeleteFile(tmpfile);
     return found;
+}
+
+/*---------------------------------------------------------------*/
+/* UpdateDevsButtons - enable/disable based on devs list content */
+/*---------------------------------------------------------------*/
+
+void UpdateDevsButtons(void)
+{
+    LONG entries = 0;
+    BOOL has_interfaces = FALSE;
+
+    get(lst_devs, MUIA_List_Entries, &entries);
+    if (entries > 0)
+    {
+        STRPTR entry = NULL;
+        DoMethod(lst_devs, MUIM_List_GetEntry, 0, &entry);
+        if (entry && strcmp(entry, "(empty)") != 0 &&
+                     strcmp(entry, "(directory not found)") != 0)
+            has_interfaces = TRUE;
+    }
+
+    set(btn_delete, MUIA_Disabled, !has_interfaces);
+
+    if (!editif_exists)
+        set(btn_edit, MUIA_Disabled, TRUE);
+    else
+        set(btn_edit, MUIA_Disabled, !has_interfaces);
 }
 
 /*---------------------------------------------------------------*/
@@ -323,13 +353,13 @@ BOOL BuildApp(void)
 
     /* Selection labels */
     lbl_sel_s = TextObject,
-        MUIA_Text_Contents, "\33bDevice:",
+        MUIA_Text_Contents, "\33bSelected:",
         MUIA_Text_SetMin, FALSE,
     End;
     if (!lbl_sel_s) return FALSE;
 
     lbl_sel_d = TextObject,
-        MUIA_Text_Contents, "\33bDevice:",
+        MUIA_Text_Contents, "\33bSelected:",
         MUIA_Text_SetMin, FALSE,
     End;
     if (!lbl_sel_d) return FALSE;
@@ -366,25 +396,66 @@ BOOL BuildApp(void)
     btn_add = SimpleButton("_Add >>");
     if (!btn_add) return FALSE;
 
-    btn_delete = SimpleButton("<< _Remove");
+    btn_delete = SimpleButton("<< _Delete");
     if (!btn_delete) return FALSE;
 
+    btn_edit = SimpleButton("_Edit");
+    if (!btn_edit) return FALSE;
+
+    btn_refresh = SimpleButton("_Refresh");
+    if (!btn_refresh) return FALSE;
+
+    /* Disable Edit if C:EditInterface does not exist */
+    {
+        BPTR editlock = Lock("C:EditInterface", ACCESS_READ);
+        if (editlock)
+        {
+            UnLock(editlock);
+            editif_exists = TRUE;
+        }
+        else
+        {
+            editif_exists = FALSE;
+        }
+        set(btn_edit, MUIA_Disabled, TRUE);
+    }
+
     /* Left panel */
-    grp_storage = VGroup,
-        GroupFrameT("SYS:Storage/NetInterfaces"),
-        Child, lst_storage,
-        Child, sel_grp_s,
-        Child, btn_add,
-    End;
+    {
+        Object *storage_btn_grp;
+
+        storage_btn_grp = HGroup,
+            Child, btn_refresh,
+            Child, btn_add,
+        End;
+        if (!storage_btn_grp) return FALSE;
+
+        grp_storage = VGroup,
+            GroupFrameT("SYS:Storage/NetInterfaces"),
+            Child, lst_storage,
+            Child, sel_grp_s,
+            Child, storage_btn_grp,
+        End;
+    }
     if (!grp_storage) return FALSE;
 
     /* Right panel */
-    grp_devs = VGroup,
-        GroupFrameT("DEVS:NetInterfaces"),
-        Child, lst_devs,
-        Child, sel_grp_d,
-        Child, btn_delete,
-    End;
+    {
+        Object *devs_btn_grp;
+
+        devs_btn_grp = HGroup,
+            Child, btn_delete,
+            Child, btn_edit,
+        End;
+        if (!devs_btn_grp) return FALSE;
+
+        grp_devs = VGroup,
+            GroupFrameT("DEVS:NetInterfaces"),
+            Child, lst_devs,
+            Child, sel_grp_d,
+            Child, devs_btn_grp,
+        End;
+    }
     if (!grp_devs) return FALSE;
 
     /* Vertical bar */
@@ -424,19 +495,11 @@ BOOL BuildApp(void)
     if (!hbar2) return FALSE;
 
     /* Buttons */
-    btn_refresh = SimpleButton("_Refresh");
-    if (!btn_refresh) return FALSE;
-
     btn_quit = SimpleButton("_Quit");
     if (!btn_quit) return FALSE;
 
-    spacer = HSpace(0);
-    if (!spacer) return FALSE;
-
     hgrp_buttons = HGroup,
-        MUIA_Group_SameSize, TRUE,
-        Child, btn_refresh,
-        Child, spacer,
+        Child, HSpace(0),
         Child, btn_quit,
     End;
     if (!hgrp_buttons) return FALSE;
@@ -553,21 +616,27 @@ int main(int argc, char **argv)
         app, 2,
         MUIM_Application_ReturnID, ID_DELETE);
 
+    DoMethod(btn_edit, MUIM_Notify,
+        MUIA_Pressed, FALSE,
+        app, 2,
+        MUIM_Application_ReturnID, ID_EDIT);
+
     /* Double-click on left list = Add */
     DoMethod(lst_storage, MUIM_Notify,
         MUIA_Listview_DoubleClick, TRUE,
         app, 2,
         MUIM_Application_ReturnID, ID_ADD);
 
-    /* Double-click on right list = Delete */
+    /* Double-click on right list = Edit */
     DoMethod(lst_devs, MUIM_Notify,
         MUIA_Listview_DoubleClick, TRUE,
         app, 2,
-        MUIM_Application_ReturnID, ID_DELETE);
+        MUIM_Application_ReturnID, ID_EDIT);
 
     /* Initial scan */
     ScanDirectory(lst_storage, PATH_STORAGE);
     ScanDirectory(lst_devs, PATH_DEVS);
+    UpdateDevsButtons();
 
     /* Open window */
     set(window, MUIA_Window_Open, TRUE);
@@ -607,7 +676,7 @@ int main(int argc, char **argv)
 
                 abouttext = TextObject,
                     MUIA_Text_Contents,
-                        "\33c\33bNetIfManager 1.0\33n\n"
+                        "\33c\33bNetIfManager 1.1\33n\n"
                         "Network Interface Manager\n\n"
                         "Renaud Schweingruber\n"
                         "renaud.schweingruber@protonmail.com\n\n"
@@ -693,6 +762,7 @@ int main(int argc, char **argv)
             case ID_REFRESH:
                 ScanDirectory(lst_storage, PATH_STORAGE);
                 ScanDirectory(lst_devs, PATH_DEVS);
+                UpdateDevsButtons();
                 set(txt_storage_sel, MUIA_Text_Contents,
                     "\33c(no selection)");
                 set(txt_devs_sel, MUIA_Text_Contents,
@@ -763,6 +833,7 @@ int main(int argc, char **argv)
                 {
                     CopyInterface(entry);
                     ScanDirectory(lst_devs, PATH_DEVS);
+                    UpdateDevsButtons();
                     set(txt_devs_sel, MUIA_Text_Contents,
                         "\33c(no selection)");
                 }
@@ -779,8 +850,25 @@ int main(int argc, char **argv)
                 {
                     DeleteInterface(entry);
                     ScanDirectory(lst_devs, PATH_DEVS);
+                    UpdateDevsButtons();
                     set(txt_devs_sel, MUIA_Text_Contents,
                         "\33c(no selection)");
+                }
+                break;
+            }
+
+            case ID_EDIT:
+            {
+                STRPTR entry = NULL;
+                DoMethod(lst_devs, MUIM_List_GetEntry,
+                    MUIV_List_GetEntry_Active, &entry);
+                if (entry && strcmp(entry, "(empty)") != 0
+                          && strcmp(entry, "(directory not found)") != 0)
+                {
+                    char cmd[512];
+                    sprintf(cmd, "C:EditInterface \"%s/%s\"",
+                        PATH_DEVS, entry);
+                    SystemTags(cmd, TAG_DONE);
                 }
                 break;
             }
