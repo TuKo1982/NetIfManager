@@ -33,7 +33,7 @@
 #endif
 
 static const char VersionTag[] =
-    "$VER: NetIfManager 1.1 (07.02.2026) Renaud Schweingruber";
+    "$VER: NetIfManager 1.2 (08.02.2026) Renaud Schweingruber";
 
 struct Library *MUIMasterBase = NULL;
 extern struct DosLibrary *DOSBase;
@@ -326,7 +326,6 @@ BOOL BuildApp(void)
     /* List internal objects */
     list_obj_s = ListObject,
         InputListFrame,
-        MUIA_List_Title, TRUE,
         MUIA_List_ConstructHook, MUIV_List_ConstructHook_String,
         MUIA_List_DestructHook, MUIV_List_DestructHook_String,
     End;
@@ -334,7 +333,6 @@ BOOL BuildApp(void)
 
     list_obj_d = ListObject,
         InputListFrame,
-        MUIA_List_Title, TRUE,
         MUIA_List_ConstructHook, MUIV_List_ConstructHook_String,
         MUIA_List_DestructHook, MUIV_List_DestructHook_String,
     End;
@@ -501,6 +499,7 @@ BOOL BuildApp(void)
     hgrp_buttons = HGroup,
         Child, HSpace(0),
         Child, btn_quit,
+        Child, HSpace(0),
     End;
     if (!hgrp_buttons) return FALSE;
 
@@ -676,7 +675,7 @@ int main(int argc, char **argv)
 
                 abouttext = TextObject,
                     MUIA_Text_Contents,
-                        "\33c\33bNetIfManager 1.1\33n\n"
+                        "\33c\33bNetIfManager 1.2\33n\n"
                         "Network Interface Manager\n\n"
                         "Renaud Schweingruber\n"
                         "renaud.schweingruber@protonmail.com\n\n"

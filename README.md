@@ -72,6 +72,10 @@ sc LINK NOSTKCHK DATA=NEAR INCLUDEDIR=MUI:Developer/C/Include NetIfManager.c PNA
 
 ## Changelog
 
+### v1.2 (08.02.2026)
+- Quit button centered in the window
+- Fixed empty first line in both lists (removed unused MUIA_List_Title)
+
 ### v1.1 (07.02.2026)
 - Added Edit button to edit active interfaces via `C:EditInterface`
 - Smart button states: Delete and Edit are disabled when the active list is empty
