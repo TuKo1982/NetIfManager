@@ -22,7 +22,7 @@ NetIfManager provides a graphical interface to manage network interfaces on Amig
 
 ## Screenshots
 
-*Coming soon*
+<img width="629" height="483" alt="netifmanager" src="https://github.com/user-attachments/assets/2c7279c3-81ef-46a7-95b5-34194dbe6111" />
 
 ## Requirements
 
